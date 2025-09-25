@@ -1,7 +1,16 @@
 pipeline {
     agent any
     stages {
-
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'echo "Building app..."'
+            }
+        }
         stage('Install Dependencies') {
             steps {
                 sh 'npm install'
@@ -24,23 +33,16 @@ pipeline {
         }
         stage('SonarCloud Analysis') {
             steps {
-                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-                      sh '''
-                        export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
-                        export SONAR_SCANNER_VERSION=7.2.0.5079
-                        export SONAR_SCANNER_HOME=$HOME/.sonar/sonar-scanner-$SONAR_SCANNER_VERSION-macosx-x64
-                        [ -d "$SONAR_SCANNER_HOME" ] || {
-                          curl -sSLo $HOME/.sonar/sonar-scanner.zip \
-                            https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-$SONAR_SCANNER_VERSION-macosx-x64.zip
-                          unzip -qo $HOME/.sonar/sonar-scanner.zip -d $HOME/.sonar/
-                        }
-                        export PATH="$SONAR_SCANNER_HOME/bin:$PATH"
-                
-                        sonar-scanner \
-                          -Dsonar.organization=trinhbaoto \
-                          -Dsonar.projectKey=HousePricePredictionDemo \
-                          -Dsonar.nodejs.executable=/opt/homebrew/opt/node@22/bin/node
-                      '''
+                withSonarQubeEnv('HousePricePredictionDemo') {
+                sh 'npm run coverage || true'  
+                sh 'sonar-scanner'          
+                }
+            }
+            }
+            stage('Quality Gate') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                waitForQualityGate abortPipeline: true
                 }
             }
         }

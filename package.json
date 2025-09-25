@@ -1,0 +1,13 @@
+{
+  "scripts": {
+    "build": "echo \"(optional) build step\"",
+    "test": "jest --runInBand",
+    "coverage": "jest --coverage --runInBand && mkdir -p coverage && echo done",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "eslint": "^9.0.0",
+    "jest-junit": "^16.0.0"
+  }
+}
