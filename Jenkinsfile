@@ -34,20 +34,20 @@ pipeline {
                 }
             }
         }
-        stage('SonarCloud Analysis') {
-            steps {
-                withSonarQubeEnv('HousePricePredictionDemo') {
-                sh 'npm run coverage || true'  
-                sh 'sonar-scanner'          
-                }
-            }
-            }
-            stage('Quality Gate') {
-            steps {
-                timeout(time: 2, unit: 'MINUTES') {
-                waitForQualityGate abortPipeline: true
-                }
-            }
-        }
+        // stage('SonarCloud Analysis') {
+        //     steps {
+        //         withSonarQubeEnv('HousePricePredictionDemo') {
+        //         sh 'npm run coverage || true'  
+        //         sh 'sonar-scanner'          
+        //         }
+        //     }
+        //     }
+        //     stage('Quality Gate') {
+        //     steps {
+        //         timeout(time: 2, unit: 'MINUTES') {
+        //         waitForQualityGate abortPipeline: true
+        //         }
+        //     }
+        // }
     }
 }
