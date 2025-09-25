@@ -2,9 +2,11 @@ pipeline {
     agent any
 
     environment {
-        APP_NAME   = 'house-price-flask'
+        APP_NAME = 'house-price-flask'
         IMAGE_NAME = "house-price-flask"
         IMAGE_TAG  = "${env.BUILD_NUMBER}"
+        PYTHON = 'python3'
+        VENV_DIR = '.venv'
     }
 
     stages {
@@ -15,7 +17,7 @@ pipeline {
             }
             post {
                 success {
-                archiveArtifacts artifacts: 'GIT_SHA.txt', fingerprint: true
+                    archiveArtifacts artifacts: 'GIT_SHA.txt', fingerprint: true
                 }
             }
         }
@@ -31,6 +33,23 @@ pipeline {
             post {
                 success {
                     archiveArtifacts artifacts: 'IMAGE_ID.txt', fingerprint: true
+                }
+            }
+        }
+        stage('Unit Tests') {
+            steps {
+                sh '''
+                ${PYTHON} -m venv ${VENV_DIR}
+                . ${VENV_DIR}/bin/activate
+                pip install --upgrade pip wheel
+                pip install -r requirements.txt
+                pip install pytest
+                pytest -q --maxfail=1 --disable-warnings --junitxml=pytest-report.xml
+                '''
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: 'pytest-report.xml'
                 }
             }
         }
