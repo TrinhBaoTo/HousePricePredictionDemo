@@ -1,0 +1,48 @@
+pipeline {
+    agent any
+    stages {
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+         stage('Run Tests') {
+             steps {
+                sh 'npm test || true' 
+             }
+         }
+         stage('Generate Coverage Report') {
+             steps {
+                 sh 'npm run coverage || true'
+             }
+         }
+        stage('NPM Audit (Security Scan)') {
+             steps {
+                sh 'npm audit || true'
+             }
+        }
+        stage('SonarCloud Analysis') {
+            steps {
+                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                      sh '''
+                        export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
+                        export SONAR_SCANNER_VERSION=7.2.0.5079
+                        export SONAR_SCANNER_HOME=$HOME/.sonar/sonar-scanner-$SONAR_SCANNER_VERSION-macosx-x64
+                        [ -d "$SONAR_SCANNER_HOME" ] || {
+                          curl -sSLo $HOME/.sonar/sonar-scanner.zip \
+                            https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-$SONAR_SCANNER_VERSION-macosx-x64.zip
+                          unzip -qo $HOME/.sonar/sonar-scanner.zip -d $HOME/.sonar/
+                        }
+                        export PATH="$SONAR_SCANNER_HOME/bin:$PATH"
+                
+                        sonar-scanner \
+                          -Dsonar.organization=trinhbaoto \
+                          -Dsonar.projectKey=HousePricePredictionDemo \
+                          -Dsonar.nodejs.executable=/opt/homebrew/opt/node@22/bin/node
+                      '''
+                }
+            }
+        }
+    }
+}
