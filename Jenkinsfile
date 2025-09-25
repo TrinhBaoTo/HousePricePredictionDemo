@@ -43,30 +43,40 @@ pipeline {
                 . ${VENV_DIR}/bin/activate
                 pip install --upgrade pip wheel
                 pip install -r requirements.txt
-                pip install pytest
-                pytest -q --maxfail=1 --disable-warnings --junitxml=pytest-report.xml
+                pip install pytest pytest-cov
+                pytest -q --maxfail=1 --disable-warnings \
+                    --cov=app --cov-report=xml:coverage.xml \
+                    --junitxml=pytest-report.xml
                 '''
             }
             post {
                 always {
-                    junit allowEmptyResults: true, testResults: 'pytest-report.xml'
+                junit allowEmptyResults: true, testResults: 'pytest-report.xml'
+                archiveArtifacts allowEmptyArchive: true, artifacts: 'coverage.xml'
                 }
             }
         }
-        // stage('SonarCloud Analysis') {
-        //     steps {
-        //         withSonarQubeEnv('HousePricePredictionDemo') {
-        //         sh 'npm run coverage || true'  
-        //         sh 'sonar-scanner'          
-        //         }
-        //     }
-        //     }
-        //     stage('Quality Gate') {
-        //     steps {
-        //         timeout(time: 2, unit: 'MINUTES') {
-        //         waitForQualityGate abortPipeline: true
-        //         }
-        //     }
-        // }
+        stage('SonarCloud Analysis (CLI)') {
+            environment {
+                SONAR_SCANNER_VERSION = '7.2.0.5079'
+                SONAR_SCANNER_HOME = "${env.WORKSPACE}/.sonar/sonar-scanner-${SONAR_SCANNER_VERSION}-linux-x64"
+            }
+            steps {
+                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                sh '''
+                    mkdir -p .sonar
+                    if [ ! -x "${SONAR_SCANNER_HOME}/bin/sonar-scanner" ]; then
+                    curl -sSLo .sonar/sonar-scanner.zip \
+                        https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux-x64.zip
+                    unzip -qo .sonar/sonar-scanner.zip -d .sonar/
+                    fi
+
+                    export PATH="${SONAR_SCANNER_HOME}/bin:${PATH}"
+                    # sonar-project.properties already in repo
+                    sonar-scanner -Dsonar.login=${SONAR_TOKEN}
+                '''
+                }
+            }
+        }
     }
 }
