@@ -33,8 +33,8 @@ pipeline {
                     archiveArtifacts artifacts: 'IMAGE_ID.txt', fingerprint: true
                 }
             }
-            }
         }
+    
         stage('Install Dependencies') {
             steps {
                 sh 'npm install'
