@@ -36,6 +36,7 @@ pipeline {
                 }
             }
         }
+
         stage('Unit Tests') {
             steps {
                 sh '''
@@ -56,25 +57,24 @@ pipeline {
                 }
             }
         }
-        stage('SonarCloud Analysis (CLI)') {
-            environment {
-                SONAR_SCANNER_VERSION = '7.2.0.5079'
-                SONAR_SCANNER_HOME = "${env.WORKSPACE}/.sonar/sonar-scanner-${SONAR_SCANNER_VERSION}-linux-x64"
-            }
-            steps {
-                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-                sh '''
-                    mkdir -p .sonar
-                    if [ ! -x "${SONAR_SCANNER_HOME}/bin/sonar-scanner" ]; then
-                    curl -sSLo .sonar/sonar-scanner.zip \
-                        https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux-x64.zip
-                    unzip -qo .sonar/sonar-scanner.zip -d .sonar/
-                    fi
 
-                    export PATH="${SONAR_SCANNER_HOME}/bin:${PATH}"
-                    # sonar-project.properties already in repo
-                    sonar-scanner -Dsonar.login=${SONAR_TOKEN}
-                '''
+        stage('SonarCloud Analysis') {
+            steps {
+                withSonarQubeEnv('SonarCloud') {
+                script {
+                    def scannerHome = tool name: 'SonarScanner-macos-arm64', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+                    sh """
+                    PATH="${scannerHome}/bin:\$PATH" sonar-scanner
+                    """
+                }
+                }
+            }
+            }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 3, unit: 'MINUTES') {
+                waitForQualityGate abortPipeline: true
                 }
             }
         }
