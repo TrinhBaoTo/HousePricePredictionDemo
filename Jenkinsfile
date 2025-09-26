@@ -45,6 +45,8 @@ pipeline {
                 pip install --upgrade pip wheel
                 pip install -r requirements.txt
                 pip install pytest pytest-cov
+                
+                export PYTHONPATH=$PWD 
                 pytest -q --maxfail=1 --disable-warnings \
                     --cov=app --cov-report=xml:coverage.xml \
                     --junitxml=pytest-report.xml
