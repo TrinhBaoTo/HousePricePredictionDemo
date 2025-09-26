@@ -270,9 +270,10 @@ PY
             Time: ${new Date()}"""
 
                 emailext(
-                    subject: subject,
-                    body: body,
-                    to: "totrinhbao@gmail.com"
+                to: 'totrinhbao@gmail.com',
+                subject: "${env.JOB_NAME} #${env.BUILD_NUMBER} - Health ${healthy ? 'OK' : 'FAILED'} (HTTP ${code})",
+                body: body,
+                recipientProviders: []
                 )
 
                 if (!healthy) {
