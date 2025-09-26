@@ -241,6 +241,11 @@ PY
                         echo "Pushing image to Docker Hub..."
                         docker push $DOCKER_USER/${IMAGE_NAME}:${IMAGE_TAG}
                         docker push $DOCKER_USER/${IMAGE_NAME}:latest
+
+                        CONTAINER_ID=$(docker ps -q --filter "publish=5000")
+                        if [ ! -z "$CONTAINER_ID" ]; then
+                            docker rm -f $CONTAINER_ID
+                        fi
                     '''
                 }
             }
