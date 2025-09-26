@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "echo \"(optional) build step\"",
+    "build": "echo \"build step\"",
     "test": "jest --runInBand",
     "coverage": "jest --coverage --runInBand && mkdir -p coverage && echo done",
     "lint": "eslint ."
