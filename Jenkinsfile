@@ -60,6 +60,34 @@ pipeline {
             }
         }
 
+stage('Security - Code (Bandit)') {
+  steps {
+    sh '''
+      . ${VENV_DIR}/bin/activate || { ${PYTHON} -m venv ${VENV_DIR}; . ${VENV_DIR}/bin/activate; }
+
+      pip install --quiet --upgrade bandit
+      bandit -r app -f json -o bandit.json || true
+
+      # parse+fail on HIGH
+      cat > parse_bandit.py <<'PY'
+import json, sys
+d = json.load(open("bandit.json")) if __import__("pathlib").Path("bandit.json").exists() else {"results":[]}
+sev = {"LOW":0,"MEDIUM":0,"HIGH":0}
+for r in d.get("results", []):
+    sev[r.get("issue_severity","LOW").upper()] = sev.get(r.get("issue_severity","LOW").upper(),0) + 1
+print(f"[Bandit] High:{sev['HIGH']}  Medium:{sev['MEDIUM']}  Low:{sev['LOW']}")
+if sev['HIGH'] > 0:
+    print("Why failed: HIGH severity code issues. Fix or add justified '# nosec'.")
+    sys.exit(2)
+PY
+      python3 parse_bandit.py
+    '''
+  }
+  post {
+    always { archiveArtifacts artifacts: 'bandit.json', allowEmptyArchive: true }
+  }
+}
+
 stage('Security - Deps (pip-audit)') {
   steps {
     sh '''
@@ -123,40 +151,6 @@ crit, hi = count_findings(data)
 print(f"[pip-audit] Findings — Critical:{crit} High:{hi}")
 if crit + hi > 0:
     print("\\nWhy failed: Vulnerable dependencies detected. Fix by pinning/upgrading in requirements.txt.")
-    sys.exit(2)
-PY
-      python3 parse_pipaudit.py
-    '''
-  }
-  post {
-    always { archiveArtifacts artifacts: 'pip-audit.json', allowEmptyArchive: true }
-  }
-}
-
-stage('Security - Deps (pip-audit)') {
-  steps {
-    sh '''
-      . ${VENV_DIR}/bin/activate || { ${PYTHON} -m venv ${VENV_DIR}; . ${VENV_DIR}/bin/activate; }
-
-      pip install --quiet --upgrade pip-audit
-      pip-audit -r requirements.txt -f json -o pip-audit.json || true
-
-      cat > parse_pipaudit.py <<'PY'
-import json, sys, pathlib
-p = pathlib.Path("pip-audit.json")
-if not p.exists() or p.stat().st_size == 0:
-    print("[pip-audit] No report generated.")
-    sys.exit(0)
-vulns = json.load(open(p))
-crit = hi = 0
-for pkg in vulns:
-    for v in pkg.get("vulns", []):
-        sev = (v.get("severity") or "").upper()
-        if sev == "CRITICAL": crit += 1
-        elif sev == "HIGH": hi += 1
-print(f"[pip-audit] Findings — Critical:{crit} High:{hi}")
-if crit + hi > 0:
-    print("\\nWhy failed: Vulnerable dependencies detected. Pin/upgrade in requirements.txt.")
     sys.exit(2)
 PY
       python3 parse_pipaudit.py
