@@ -214,10 +214,11 @@ PY
         stage('Deploy') {
             steps {
                 sh '''
-                CONTAINER_ID=$(docker ps -q --filter "publish=5000")
-                    if [ ! -z "$CONTAINER_ID" ]; then
-                        docker rm -f $CONTAINER_ID
-                    fi
+                OLD=$(docker ps -q --filter "publish=5050")
+                if [ -n "$OLD" ]; then
+                    echo "Stopping old container using port 5050: $OLD"
+                    docker rm -f $OLD
+                fi
 
                 echo "Deploying ${IMAGE_NAME}:${IMAGE_TAG} locally"
 
@@ -225,9 +226,9 @@ PY
                 docker rm -f ${APP_NAME} || true
 
                 # run new one
-                docker run -d --name ${APP_NAME} -p 5000:5000 ${IMAGE_NAME}:${IMAGE_TAG}
+                docker run -d --name ${APP_NAME} -p 5050:5000 ${IMAGE_NAME}:${IMAGE_TAG}
 
-                echo "App running at http://localhost:5000"
+                echo "App running at http://localhost:5050"
                 '''
             }
         }
