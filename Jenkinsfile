@@ -214,15 +214,15 @@ PY
         stage('Deploy') {
             steps {
                 sh """
-                echo "Deploying ${IMAGE_NAME}:${IMAGE_TAG} locally"
-
-                # stop old container if exists
-                docker rm -f ${APP_NAME} || true
-
                 CONTAINER_ID=$(docker ps -q --filter "publish=5000")
                     if [ ! -z "$CONTAINER_ID" ]; then
                         docker rm -f $CONTAINER_ID
                     fi
+
+                echo "Deploying ${IMAGE_NAME}:${IMAGE_TAG} locally"
+
+                # stop old container if exists
+                docker rm -f ${APP_NAME} || true
 
                 # run new one
                 docker run -d --name ${APP_NAME} -p 5000:5000 ${IMAGE_NAME}:${IMAGE_TAG}
