@@ -87,7 +87,6 @@ PY
     always { archiveArtifacts artifacts: 'bandit.json', allowEmptyArchive: true }
   }
 }
-
 stage('Security - Deps (pip-audit)') {
   steps {
     sh '''
@@ -160,7 +159,6 @@ PY
     always { archiveArtifacts artifacts: 'pip-audit.json', allowEmptyArchive: true }
   }
 }
-
 stage('Security - Secrets (Gitleaks)') {
   steps {
     sh '''
@@ -222,10 +220,7 @@ PY
 
                 echo "Deploying ${IMAGE_NAME}:${IMAGE_TAG} locally"
 
-                # stop old container if exists
                 docker rm -f ${APP_NAME} || true
-
-                # run new one
                 docker run -d --name ${APP_NAME} -p 5050:5000 ${IMAGE_NAME}:${IMAGE_TAG}
 
                 echo "App running at http://localhost:5050"
@@ -248,6 +243,43 @@ PY
                         docker push $DOCKER_USER/${IMAGE_NAME}:${IMAGE_TAG}
                         docker push $DOCKER_USER/${IMAGE_NAME}:latest
                     '''
+                }
+            }
+        }
+
+        stage('Monitor & Alert') {
+            steps {
+                script {
+                def result = sh(
+                    script: "curl -s -o /dev/null -w '%{http_code} %{time_total}' http://localhost:5050",
+                    returnStdout: true
+                ).trim()
+
+                def parts = result.tokenize(' ')
+                def code = parts[0]
+                def seconds = (parts.size() > 1 ? parts[1] : "0")
+                def ms = (seconds.isFloat() ? (seconds.toFloat() * 1000).intValue() : 0)
+
+                def healthy = (code == "200")
+                def subject = "${env.JOB_NAME} #${env.BUILD_NUMBER} - Health ${healthy ? 'OK' : 'FAILED'} (HTTP ${code})"
+                def body = """Health check ${healthy ? 'OK' : 'FAILED'}
+            HTTP: ${code}
+            Latency: ${ms} ms
+            Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}
+            URL: ${env.BUILD_URL}
+            Time: ${new Date()}"""
+
+                emailext(
+                    subject: subject,
+                    body: body,
+                    to: "your-team@gmail.com"
+                )
+
+                if (!healthy) {
+                    error("App is not healthy (HTTP ${code})")
+                } else {
+                    echo "Health check OK (HTTP 200, ${ms} ms) — email sent."
+                }
                 }
             }
         }
