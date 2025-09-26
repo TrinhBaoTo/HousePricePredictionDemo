@@ -219,6 +219,11 @@ PY
                 # stop old container if exists
                 docker rm -f ${APP_NAME} || true
 
+                CONTAINER_ID=$(docker ps -q --filter "publish=5000")
+                    if [ ! -z "$CONTAINER_ID" ]; then
+                        docker rm -f $CONTAINER_ID
+                    fi
+
                 # run new one
                 docker run -d --name ${APP_NAME} -p 5000:5000 ${IMAGE_NAME}:${IMAGE_TAG}
 
@@ -241,11 +246,6 @@ PY
                         echo "Pushing image to Docker Hub..."
                         docker push $DOCKER_USER/${IMAGE_NAME}:${IMAGE_TAG}
                         docker push $DOCKER_USER/${IMAGE_NAME}:latest
-
-                        CONTAINER_ID=$(docker ps -q --filter "publish=5000")
-                        if [ ! -z "$CONTAINER_ID" ]; then
-                            docker rm -f $CONTAINER_ID
-                        fi
                     '''
                 }
             }
