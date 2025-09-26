@@ -272,7 +272,7 @@ PY
                 emailext(
                     subject: subject,
                     body: body,
-                    to: "your-team@gmail.com"
+                    to: "zimsby@gmail.com"
                 )
 
                 if (!healthy) {
