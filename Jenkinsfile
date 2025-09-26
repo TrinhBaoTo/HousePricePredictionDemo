@@ -210,5 +210,40 @@ PY
                 }
             }
         }
+
+        stage('Deploy') {
+            steps {
+                sh """
+                echo "Deploying ${IMAGE_NAME}:${IMAGE_TAG} locally"
+
+                # stop old container if exists
+                docker rm -f ${APP_NAME} || true
+
+                # run new one
+                docker run -d --name ${APP_NAME} -p 5000:5000 ${IMAGE_NAME}:${IMAGE_TAG}
+
+                echo "App running at http://localhost:5000"
+                """
+            }
+        }
+        
+        stage('Release') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo "Logging into Docker Hub..."
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+
+                        echo "Tagging image for Docker Hub..."
+                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} $DOCKER_USER/${IMAGE_NAME}:${IMAGE_TAG}
+                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} $DOCKER_USER/${IMAGE_NAME}:latest
+
+                        echo "Pushing image to Docker Hub..."
+                        docker push $DOCKER_USER/${IMAGE_NAME}:${IMAGE_TAG}
+                        docker push $DOCKER_USER/${IMAGE_NAME}:latest
+                    '''
+                }
+            }
+        }
     }
 }
