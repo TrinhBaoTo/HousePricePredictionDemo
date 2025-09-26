@@ -269,7 +269,7 @@ PY
             URL: ${env.BUILD_URL}
             Time: ${new Date()}"""
 
-                emailext(
+                mail(
                 to: 'totrinhbao@gmail.com',
                 subject: "${env.JOB_NAME} #${env.BUILD_NUMBER} - Health ${healthy ? 'OK' : 'FAILED'} (HTTP ${code})",
                 body: body,
