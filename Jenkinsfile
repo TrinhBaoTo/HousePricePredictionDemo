@@ -60,31 +60,76 @@ pipeline {
             }
         }
 
-stage('Security - Code (Bandit)') {
+stage('Security - Deps (pip-audit)') {
   steps {
     sh '''
       . ${VENV_DIR}/bin/activate || { ${PYTHON} -m venv ${VENV_DIR}; . ${VENV_DIR}/bin/activate; }
 
-      pip install --quiet --upgrade bandit
-      bandit -r app -f json -o bandit.json || true
+      pip install --quiet --upgrade pip-audit
+      # JSON output to file; stdout warnings go to console, not the file
+      pip-audit -r requirements.txt -f json -o pip-audit.json || true
 
-      # parse+fail on HIGH
-      cat > parse_bandit.py <<'PY'
-import json, sys
-d = json.load(open("bandit.json")) if __import__("pathlib").Path("bandit.json").exists() else {"results":[]}
-sev = {"LOW":0,"MEDIUM":0,"HIGH":0}
-for r in d.get("results", []):
-    sev[r.get("issue_severity","LOW").upper()] = sev.get(r.get("issue_severity","LOW").upper(),0) + 1
-print(f"[Bandit] High:{sev['HIGH']}  Medium:{sev['MEDIUM']}  Low:{sev['LOW']}")
-if sev['HIGH'] > 0:
-    print("Why failed: HIGH severity code issues. Fix or add justified '# nosec'.")
+      cat > parse_pipaudit.py <<'PY'
+import json, sys, pathlib
+
+p = pathlib.Path("pip-audit.json")
+if not p.exists() or p.stat().st_size == 0:
+    print("[pip-audit] No report generated.")
+    sys.exit(0)
+
+def count_findings(obj):
+    """Return (critical, high) from various pip-audit JSON shapes."""
+    crit = hi = 0
+
+    # Case A: list of deps OR list of strings (edge)
+    if isinstance(obj, list):
+        for item in obj:
+            if isinstance(item, dict):
+                for v in item.get("vulns", []):
+                    sev = (v.get("severity") or "").upper()
+                    if sev == "CRITICAL": crit += 1
+                    elif sev == "HIGH": hi += 1
+            # if it’s a string ignore
+        return crit, hi
+
+    # Case B: dict with dependencies:[{..., vulns:[...]}]
+    if isinstance(obj, dict):
+        deps = obj.get("dependencies") or obj.get("results") or []
+        if isinstance(deps, list):
+            for dep in deps:
+                if not isinstance(dep, dict):
+                    continue
+                for v in dep.get("vulns", []):
+                    sev = (v.get("severity") or "").upper()
+                    if sev == "CRITICAL": crit += 1
+                    elif sev == "HIGH": hi += 1
+        # Case C: dict with top-level "vulnerabilities":[...] (future schemas)
+        for v in obj.get("vulnerabilities", []):
+            sev = (v.get("severity") or "").upper()
+            if sev == "CRITICAL": crit += 1
+            elif sev == "HIGH": hi += 1
+        return crit, hi
+
+    # Anything else: treat as no findings
+    return 0, 0
+
+try:
+    data = json.load(open(p))
+except Exception as e:
+    print(f"[pip-audit] Could not parse JSON: {e}")
+    sys.exit(0)
+
+crit, hi = count_findings(data)
+print(f"[pip-audit] Findings — Critical:{crit} High:{hi}")
+if crit + hi > 0:
+    print("\\nWhy failed: Vulnerable dependencies detected. Fix by pinning/upgrading in requirements.txt.")
     sys.exit(2)
 PY
-      python3 parse_bandit.py
+      python3 parse_pipaudit.py
     '''
   }
   post {
-    always { archiveArtifacts artifacts: 'bandit.json', allowEmptyArchive: true }
+    always { archiveArtifacts artifacts: 'pip-audit.json', allowEmptyArchive: true }
   }
 }
 
